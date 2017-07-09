@@ -770,6 +770,9 @@ extern clientBufferLimitsConfig clientBufferLimitsDefaults[CLIENT_TYPE_OBUF_COUN
  *
  * Currently only used to additionally propagate more commands to AOF/Replication
  * after the propagation of the executed command. */
+/**
+ * redis操作用于aof replication
+ */
 typedef struct redisOp {
     robj **argv;
     int argc, dbid, target;

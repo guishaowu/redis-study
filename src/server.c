@@ -123,6 +123,7 @@ volatile unsigned long lru_clock; /* Server global current LRU time. */
  *    its execution as long as the kernel scheduler is giving us time.
  *    Note that commands that may trigger a DEL as a side effect (like SET)
  *    are not fast commands.
+ *    命令表
  */
 struct redisCommand redisCommandTable[] = {
     //相关命令的实现都在t_string,t_list,t_hash等文件中
@@ -396,6 +397,10 @@ err:
 }
 
 /* Return the UNIX time in microseconds */
+/**
+ * 获取系统时间 微秒
+ * @return
+ */
 long long ustime(void) {
     struct timeval tv;
     long long ust;
@@ -407,6 +412,10 @@ long long ustime(void) {
 }
 
 /* Return the UNIX time in milliseconds */
+/**
+ * 获取系统时间，毫秒
+ * @return
+ */
 mstime_t mstime(void) {
     return ustime()/1000;
 }
@@ -923,6 +932,9 @@ void databasesCron(void) {
  * virtual memory and aging there is to store the current time in objects at
  * every object access, and accuracy is not needed. To access a global var is
  * a lot faster than calling time(NULL) */
+/**
+ * 更新server保存的系统时间
+ */
 void updateCachedTime(void) {
     time_t unixtime = time(NULL);
     atomicSet(server.unixtime,unixtime);
@@ -1174,6 +1186,13 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
 /* This function gets called every time Redis is entering the
  * main loop of the event driven library, that is, before to sleep
  * for ready file descriptors. */
+/**
+ * 事件循环前置处理
+ * 1 集群前置处理
+ * 2 激活过期处理
+ * // todo
+ * @param eventLoop
+ */
 void beforeSleep(struct aeEventLoop *eventLoop) {
     UNUSED(eventLoop);
 
@@ -1231,13 +1250,19 @@ void beforeSleep(struct aeEventLoop *eventLoop) {
 /* This function is called immadiately after the event loop multiplexing
  * API returned, and the control is going to soon return to Redis by invoking
  * the different events callbacks. */
+/**
+ * 事件循环后置处理
+ * @param eventLoop
+ */
 void afterSleep(struct aeEventLoop *eventLoop) {
     UNUSED(eventLoop);
     if (moduleCount()) moduleAcquireGIL();
 }
 
 /* =========================== Server initialization ======================== */
-
+/**
+ * 创建共享对象
+ */
 void createSharedObjects(void) {
     int j;
 
@@ -1330,6 +1355,9 @@ void createSharedObjects(void) {
     shared.maxstring = sdsnew("maxstring");
 }
 
+/**
+ * 初始化server 默认配置
+ */
 void initServerConfig(void) {
     int j;
 
@@ -1682,6 +1710,13 @@ void checkTcpBacklogSettings(void) {
  * impossible to bind, or no bind addresses were specified in the server
  * configuration but the function is not able to bind * for at least
  * one of the IPv4 or IPv6 protocols. */
+/**
+ * 监听端口
+ * @param port
+ * @param fds
+ * @param count
+ * @return
+ */
 int listenToPort(int port, int *fds, int *count) {
     int j;
 
@@ -1744,6 +1779,9 @@ int listenToPort(int port, int *fds, int *count) {
 /* Resets the stats that we expose via INFO or other means that we want
  * to reset via CONFIG RESETSTAT. The function is also used in order to
  * initialize these fields in initServer() at server startup. */
+/**
+ * 重置统计信息
+ */
 void resetServerStats(void) {
     int j;
 
@@ -1775,9 +1813,19 @@ void resetServerStats(void) {
     server.aof_delayed_fsync = 0;
 }
 
-/*
-初始化数据结构
-*/
+/**
+ * 初始化数据结构
+ * 1 创建监听
+ * 2 创建database
+ * 3 创建事件循环处理
+ * 4 注册连接事件处理
+ * 5 注册时间事件处理（serverCron)
+ * 6 集群初始化
+ * 7 replication 初始化
+ * 8 slowLog 初始化
+ * 9 latency monitor 初始化
+ * 10 bio初始化 (后台任务处理）
+ */
 void initServer(void) {
     int j;
 
@@ -1982,6 +2030,9 @@ void populateCommandTable(void) {
     }
 }
 
+/**
+ * 重置命令统计
+ */
 void resetCommandTableStats(void) {
     int numcommands = sizeof(redisCommandTable)/sizeof(struct redisCommand);
     int j;
@@ -1995,12 +2046,24 @@ void resetCommandTableStats(void) {
 }
 
 /* ========================== Redis OP Array API ============================ */
-
+/**
+ * 初始化操作 数组（用于aof, replication传播）
+ * @param oa
+ */
 void redisOpArrayInit(redisOpArray *oa) {
     oa->ops = NULL;
     oa->numops = 0;
 }
-
+/**
+ * 操作数组，添加操作
+ * @param oa
+ * @param cmd
+ * @param dbid
+ * @param argv
+ * @param argc
+ * @param target
+ * @return
+ */
 int redisOpArrayAppend(redisOpArray *oa, struct redisCommand *cmd, int dbid,
                        robj **argv, int argc, int target)
 {
@@ -2053,6 +2116,11 @@ struct redisCommand *lookupCommandByCString(char *s) {
  * This is used by functions rewriting the argument vector such as
  * rewriteClientCommandVector() in order to set client->cmd pointer
  * correctly even if the command was renamed. */
+/**
+ * 从server的命令表中查找命令
+ * @param name
+ * @return
+ */
 struct redisCommand *lookupCommandOrOriginal(sds name) {
     struct redisCommand *cmd = dictFetchValue(server.commands, name);
 
@@ -2070,6 +2138,14 @@ struct redisCommand *lookupCommandOrOriginal(sds name) {
  *
  * This should not be used inside commands implementation. Use instead
  * alsoPropagate(), preventCommandPropagation(), forceCommandPropagation().
+ */
+/**
+ * 将操作，传播给replication ， aof
+ * @param cmd
+ * @param dbid
+ * @param argv
+ * @param argc
+ * @param flags
  */
 void propagate(struct redisCommand *cmd, int dbid, robj **argv, int argc,
                int flags)
@@ -2169,6 +2245,14 @@ void preventCommandReplication(client *c) {
  * preventCommandAOF(client *c);
  * preventCommandReplication(client *c);
  *
+ */
+/**
+ * 调用命令函数，做额外的处理
+ * 1 统计命令执行时间
+ * 2 统计命令执行次数
+ * 3 如果符合条件，将命令加入aof, replication
+ * @param c
+ * @param flags
  */
 void call(client *c, int flags) {
     long long dirty, start, duration;
@@ -2294,6 +2378,22 @@ void call(client *c, int flags) {
  * If C_OK is returned the client is still alive and valid and
  * other operations can be performed by the caller. Otherwise
  * if C_ERR is returned the client was destroyed (i.e. after QUIT). */
+/**
+ * 处理命令请求
+ * 1 查找命令，检查参数
+ * 2 检查权限
+ * 3 集群模式，对应的key的slot不在此节点，redirect
+ * 4 检查内存
+ * 5 如果持久化命令有异常，无法处理写命令，返回错误
+ * 6 没有足够的slave节点，无法处理写命令，返回错误
+ * 7 只读slave命令，无法处理写命令，返回错误
+ * 8 订阅客户端，无法处理其他命令，返回错误
+ * 9 slave节点与master节点断开后，设置了slave-serve-stale-data  no，只能处理info或者slaveOf命令
+ * 10 lua脚本慢，只能允许有限的命令
+ * 11 处理命令
+ * @param c
+ * @return
+ */
 int processCommand(client *c) {
     /* The QUIT command is handled separately. Normal command procs will
      * go through checking for replication and QUIT will cause trouble
@@ -2484,6 +2584,10 @@ int processCommand(client *c) {
 
 /* Close listening sockets. Also unlink the unix domain socket if
  * unlink_unix_socket is non-zero. */
+/**
+ * 关闭所有socket cluster或者客户端的
+ * @param unlink_unix_socket
+ */
 void closeListeningSockets(int unlink_unix_socket) {
     int j;
 
@@ -2497,6 +2601,17 @@ void closeListeningSockets(int unlink_unix_socket) {
     }
 }
 
+/**
+ * 关闭准备
+ * 1 kill 所有的lua
+ * 2 kill rdb
+ * 3 kill aof
+ * 4 保存  rdb
+ * 5 将slave outBuffer内容写入socket
+ * 6 关闭所有 socket
+ * @param flags
+ * @return
+ */
 int prepareForShutdown(int flags) {
     int save = flags & SHUTDOWN_SAVE;
     int nosave = flags & SHUTDOWN_NOSAVE;
@@ -2711,6 +2826,10 @@ void addReplyCommand(client *c, struct redisCommand *cmd) {
 }
 
 /* COMMAND <subcommand> <args> */
+/**
+ * 处理客户端请求的命令
+ * @param c
+ */
 void commandCommand(client *c) {
     dictIterator *di;
     dictEntry *de;
@@ -3313,7 +3432,10 @@ sds genRedisInfoString(char *section) {
     }
     return info;
 }
-
+/**
+ * info 命令处理
+ * @param c 请求的client
+ */
 void infoCommand(client *c) {
     char *section = c->argc == 2 ? c->argv[1]->ptr : "default";
 
@@ -3324,6 +3446,10 @@ void infoCommand(client *c) {
     addReplyBulkSds(c, genRedisInfoString(section));
 }
 
+/**
+ * monitor命令处理
+ * @param c
+ */
 void monitorCommand(client *c) {
     /* ignore MONITOR if already slave or in monitor mode */
     if (c->flags & CLIENT_SLAVE) return;
@@ -3390,6 +3516,9 @@ void daemonize(void) {
     }
 }
 
+/**
+ * 版本号
+ */
 void version(void) {
     printf("Redis server v=%s sha=%s:%d malloc=%s bits=%d build=%llx\n",
         REDIS_VERSION,
@@ -3401,6 +3530,9 @@ void version(void) {
     exit(0);
 }
 
+/**
+ * 使用信息
+ */
 void usage(void) {
     fprintf(stderr,"Usage: ./redis-server [/path/to/redis.conf] [options]\n");
     fprintf(stderr,"       ./redis-server - (read config from stdin)\n");
@@ -3418,6 +3550,9 @@ void usage(void) {
     exit(1);
 }
 
+/**
+ * redis logo
+ */
 void redisAsciiArt(void) {
 #include "asciilogo.h"
     char *buf = zmalloc(1024*16);
@@ -3484,6 +3619,9 @@ static void sigShutdownHandler(int sig) {
     server.shutdown_asap = 1;
 }
 
+/**
+ * 设置进程信号处理
+ */
 void setupSignalHandlers(void) {
     struct sigaction act;
 
@@ -3511,6 +3649,12 @@ void memtest(size_t megabytes, int passes);
 
 /* Returns 1 if there is --sentinel among the arguments or if
  * argv[0] contains "redis-sentinel". */
+/**
+ * 检查启动参数是否是哨兵模式
+ * @param argc
+ * @param argv
+ * @return
+ */
 int checkForSentinelMode(int argc, char **argv) {
     int j;
 
@@ -3521,6 +3665,9 @@ int checkForSentinelMode(int argc, char **argv) {
 }
 
 /* Function called at startup to load RDB or AOF file in memory. */
+/**
+ * 加载数据库数据到内存
+ */
 void loadDataFromDisk(void) {
     long long start = ustime();
     if (server.aof_state == AOF_ON) {
@@ -3553,7 +3700,10 @@ void redisOutOfMemoryHandler(size_t allocation_size) {
         allocation_size);
     serverPanic("Redis aborting for OUT OF MEMORY");
 }
-
+/**
+ * 设置进程标题
+ * @param title
+ */
 void redisSetProcTitle(char *title) {
 #ifdef USE_SETPROCTITLE
     char *server_mode = "";
@@ -3645,7 +3795,11 @@ int redisSupervisedSystemd(void) {
     close(fd);
     return 1;
 }
-
+/**
+ * 检查是否supervised模式
+ * @param mode
+ * @return
+ */
 int redisIsSupervised(int mode) {
     if (mode == SUPERVISED_AUTODETECT) {
         const char *upstart_job = getenv("UPSTART_JOB");
@@ -3665,7 +3819,24 @@ int redisIsSupervised(int mode) {
     return 0;
 }
 
-
+/**
+ * server 主方法
+ * 1 设置OutOfMemory异常处理
+ * 2 字典hash函数的种子
+ * 3 设置哨兵模式标识
+ * 4 设置默认配置的值
+ * 5 初始化模块系统
+ * 6 获取启动命令带的参数
+ * 7 如果是哨兵模式，初始化哨兵端口，移除无用的命令（server处理数据存储的命令）,添加哨兵模式的命令
+ * 8 启动参数是否要去检查rdb，如果有则执行check_rdb的操作
+ * 9 读取配置，修改配置
+ * 10 初始化server数据结构
+ * 11 如果不是哨兵模式，模块加载，数据库数据加载，检查集群配置和数据，如果不是哨兵模式，开始执行哨兵模式
+ * 12 设置事件循环前置处理和后置处理，启动事件循环处理
+ * @param argc
+ * @param argv
+ * @return
+ */
 int main(int argc, char **argv) {
     struct timeval tv;
     int j;
@@ -3700,6 +3871,7 @@ int main(int argc, char **argv) {
 #ifdef INIT_SETPROCTITLE_REPLACEMENT
     spt_init(argc, argv);
 #endif
+    // 设置内存异常处理
     setlocale(LC_COLLATE,"");
     zmalloc_set_oom_handler(redisOutOfMemoryHandler);
     srand(time(NULL)^getpid());
