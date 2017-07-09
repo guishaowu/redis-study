@@ -42,6 +42,11 @@
 #define INTSET_ENC_INT64 (sizeof(int64_t))
 
 /* Return the required encoding for the provided value. */
+/**
+ * 返回对应整数应该使用的编码 16位， 32位， 64位
+ * @param v
+ * @return
+ */
 static uint8_t _intsetValueEncoding(int64_t v) {
     if (v < INT32_MIN || v > INT32_MAX)
         return INTSET_ENC_INT64;

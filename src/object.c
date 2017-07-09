@@ -114,6 +114,12 @@ robj *createEmbeddedStringObject(const char *ptr, size_t len) {
  * The current limit of 39 is chosen so that the biggest string object
  * we allocate as EMBSTR will still fit into the 64 byte arena of jemalloc. */
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
+/**
+ * 创建sds object对象，根据字符串长度，使用合适的编码
+ * @param ptr 对象内容指针
+ * @param len 字符串长度
+ * @return
+ */
 robj *createStringObject(const char *ptr, size_t len) {
     if (len <= OBJ_ENCODING_EMBSTR_SIZE_LIMIT)
         return createEmbeddedStringObject(ptr,len);

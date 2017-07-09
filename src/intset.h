@@ -31,20 +31,68 @@
 #ifndef __INTSET_H
 #define __INTSET_H
 #include <stdint.h>
-
+/**
+ * 有序整型集合
+ */
 typedef struct intset {
-    uint32_t encoding;
-    uint32_t length;
+    uint32_t encoding; // 数据类型
+    uint32_t length;  // 长度
     int8_t contents[];
 } intset;
 
+/**
+ * 创建空的整型集合
+ * @return
+ */
 intset *intsetNew(void);
+/**
+ * 插入一个整数到有序整型集合中 ，使用二分查找，找到值对应的位置,必要情况会升级（所有元素由16位升到32位）
+ * @param is 整型集合
+ * @param value 插入的值
+ * @param success 成功或失败后设置改指针的值
+ * @return
+ */
 intset *intsetAdd(intset *is, int64_t value, uint8_t *success);
+/**
+ * 移除一个整数， 使用二分查找，找位置
+ * @param is
+ * @param value
+ * @param success
+ * @return
+ */
 intset *intsetRemove(intset *is, int64_t value, int *success);
+/**
+ * 查找整数在集合中的位置
+ * @param is
+ * @param value
+ * @return
+ */
 uint8_t intsetFind(intset *is, int64_t value);
+/**
+ * 返回集合中一个随机元素
+ * @param is
+ * @return
+ */
 int64_t intsetRandom(intset *is);
+/**
+ * 返回集合中指定位置的整数值
+ * @param is
+ * @param pos
+ * @param value
+ * @return
+ */
 uint8_t intsetGet(intset *is, uint32_t pos, int64_t *value);
+/**
+ * 返回集合的长度
+ * @param is
+ * @return
+ */
 uint32_t intsetLen(const intset *is);
+/**
+ * 返回集合使用的内存大小
+ * @param is
+ * @return
+ */
 size_t intsetBlobLen(intset *is);
 
 #ifdef REDIS_TEST
