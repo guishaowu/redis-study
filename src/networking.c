@@ -66,7 +66,16 @@ void freeClientReplyValue(void *o) {
 int listMatchObjects(void *a, void *b) {
     return equalStringObjects(a,b);
 }
-
+/**
+ * 创建client ,
+ * fd为-1 创建fakeClient
+ * 设置fd nonBlock, TcpNoDelay , keepAlive
+ * 注册连接的读事件处理到事件循环处理
+ * 初始化redisClient 数据结构
+ * 加入client列表中
+ * @param fd
+ * @return
+ */
 client *createClient(int fd) {
     client *c = zmalloc(sizeof(client));
 
@@ -162,6 +171,11 @@ client *createClient(int fd) {
  * Typically gets called every time a reply is built, before adding more
  * data to the clients output buffers. If the function returns C_ERR no
  * data should be appended to the output buffers. */
+/**
+ * 检查client 是否能够接受新数据
+ * @param c
+ * @return
+ */
 int prepareClientToWrite(client *c) {
     /* If it's the Lua client we always return ok without installing any
      * handler since there is no socket at all. */
@@ -203,7 +217,9 @@ int prepareClientToWrite(client *c) {
 /* -----------------------------------------------------------------------------
  * Low level functions to add more data to output buffers.
  * -------------------------------------------------------------------------- */
-// 添加回复内容到output buffer, buffer空间不够，返回error,replyList有数据，返回error
+/**
+  添加回复内容到output buffer, buffer空间不够，返回error,replyList有数据，返回error
+ */
 int _addReplyToBuffer(client *c, const char *s, size_t len) {
     size_t available = sizeof(c->buf)-c->bufpos;
 
@@ -220,7 +236,12 @@ int _addReplyToBuffer(client *c, const char *s, size_t len) {
     c->bufpos+=len;
     return C_OK;
 }
-// 添加回复，到replyList
+/**
+ *
+ 添加回复，到replyList
+ * @param c
+ * @param o
+ */
 void _addReplyObjectToList(client *c, robj *o) {
     if (c->flags & CLIENT_CLOSE_AFTER_REPLY) return;
 
@@ -307,7 +328,11 @@ void _addReplyStringToList(client *c, const char *s, size_t len) {
  * Higher level functions to queue data on the client output buffer.
  * The following functions are the ones that commands implementations will call.
  * -------------------------------------------------------------------------- */
-
+/**
+ * 添加回复数据到client outBuffer
+ * @param c
+ * @param obj
+ */
 void addReply(client *c, robj *obj) {
     if (prepareClientToWrite(c) != C_OK) return;
 
@@ -890,6 +915,13 @@ void freeClientsInAsyncFreeQueue(void) {
 
 /* Write data in output buffers to client. Return C_OK if the client
  * is still valid after the call, C_ERR if it was freed. */
+/**
+ * 将outBuffer 的数据写到client
+ * @param fd
+ * @param c
+ * @param handler_installed
+ * @return
+ */
 int writeToClient(int fd, client *c, int handler_installed) {
     ssize_t nwritten = 0, totwritten = 0;
     size_t objlen;
@@ -1339,6 +1371,13 @@ void processInputBuffer(client *c) {
     server.current_client = NULL;
 }
 
+/**
+ * 读取client的连接中数据，读取完成后，调用processInputBuffer
+ * @param el
+ * @param fd
+ * @param privdata
+ * @param mask
+ */
 void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
     client *c = (client*) privdata;
     int nread, readlen;
